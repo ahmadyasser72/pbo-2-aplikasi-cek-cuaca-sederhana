@@ -1,14 +1,27 @@
 
+import com.squareup.moshi.Json;
 import com.squareup.moshi.JsonAdapter;
 import com.squareup.moshi.Moshi;
 import com.squareup.moshi.Types;
+import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.ExecutionException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.imageio.ImageIO;
+import javax.swing.DefaultComboBoxModel;
 import javax.swing.ImageIcon;
+import javax.swing.JFileChooser;
+import javax.swing.SwingWorker;
+import javax.swing.table.DefaultTableModel;
 import okhttp3.HttpUrl;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
@@ -32,6 +45,11 @@ public class JFrameAplikasiCekCuacaSederhana extends javax.swing.JFrame {
             Types.newParameterizedType(List.class, GeocodingAPI.class)
     );
 
+    private Set<String> kotaFavorit = new HashSet<String>();
+    private JsonAdapter<Map<String, WeatherData>> dataEkspor = moshi.adapter(
+            Types.newParameterizedType(Map.class, String.class, WeatherData.class)
+    );
+
     /**
      * Creates new form JFrameAplikasiCekCuacaSederhana
      */
@@ -39,7 +57,16 @@ public class JFrameAplikasiCekCuacaSederhana extends javax.swing.JFrame {
         initComponents();
 
         this.setLocationRelativeTo(null);
-        this.client = new OkHttpClient();
+
+        var clientBuilder = new OkHttpClient.Builder();
+        try {
+            var temp = File.createTempFile("cek-cuaca-sederhana", "http-cache");
+            clientBuilder.cache(new okhttp3.Cache(temp, 1024 * 10));
+        } catch (IOException ex) {
+            Logger.getLogger(JFrameAplikasiCekCuacaSederhana.class.getName()).log(Level.SEVERE, null, ex);
+        }
+
+        this.client = clientBuilder.build();
     }
 
     /**
@@ -60,9 +87,15 @@ public class JFrameAplikasiCekCuacaSederhana extends javax.swing.JFrame {
         jLabelIconCuaca = new javax.swing.JLabel();
         jLabelNamaCuaca = new javax.swing.JLabel();
         jLabelKeteranganCuaca = new javax.swing.JLabel();
+        jPanel3 = new javax.swing.JPanel();
+        jScrollPane1 = new javax.swing.JScrollPane();
+        jTable1 = new javax.swing.JTable();
+        jButtonImport = new javax.swing.JButton();
+        jButtonExport = new javax.swing.JButton();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
         setResizable(false);
+        getContentPane().setLayout(new java.awt.GridBagLayout());
 
         jPanel1.setLayout(new java.awt.GridBagLayout());
 
@@ -84,8 +117,11 @@ public class JFrameAplikasiCekCuacaSederhana extends javax.swing.JFrame {
         jPanel1.add(jButton1, gridBagConstraints);
 
         jComboBox1.setEditable(true);
-        jComboBox1.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { "Banjarbaru", "Banjarmasin", "Kotabaru" }));
-        jComboBox1.setSelectedIndex(-1);
+        jComboBox1.addItemListener(new java.awt.event.ItemListener() {
+            public void itemStateChanged(java.awt.event.ItemEvent evt) {
+                jComboBox1ItemStateChanged(evt);
+            }
+        });
         gridBagConstraints = new java.awt.GridBagConstraints();
         gridBagConstraints.gridx = 0;
         gridBagConstraints.gridy = 1;
@@ -93,7 +129,7 @@ public class JFrameAplikasiCekCuacaSederhana extends javax.swing.JFrame {
         gridBagConstraints.insets = new java.awt.Insets(4, 4, 4, 4);
         jPanel1.add(jComboBox1, gridBagConstraints);
 
-        getContentPane().add(jPanel1, java.awt.BorderLayout.NORTH);
+        getContentPane().add(jPanel1, new java.awt.GridBagConstraints());
 
         jPanel2.setBorder(javax.swing.BorderFactory.createTitledBorder(null, "data cuaca", javax.swing.border.TitledBorder.DEFAULT_JUSTIFICATION, javax.swing.border.TitledBorder.TOP));
         jPanel2.setLayout(new java.awt.GridBagLayout());
@@ -102,7 +138,6 @@ public class JFrameAplikasiCekCuacaSederhana extends javax.swing.JFrame {
         jLabelIconCuaca.setFont(new java.awt.Font("Segoe UI", 0, 24)); // NOI18N
         jLabelIconCuaca.setForeground(new java.awt.Color(255, 255, 255));
         jLabelIconCuaca.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-        jLabelIconCuaca.setText("icon");
         jLabelIconCuaca.setOpaque(true);
         jLabelIconCuaca.setPreferredSize(new java.awt.Dimension(50, 50));
         gridBagConstraints = new java.awt.GridBagConstraints();
@@ -130,39 +165,253 @@ public class JFrameAplikasiCekCuacaSederhana extends javax.swing.JFrame {
         gridBagConstraints.insets = new java.awt.Insets(0, 4, 4, 4);
         jPanel2.add(jLabelKeteranganCuaca, gridBagConstraints);
 
-        getContentPane().add(jPanel2, java.awt.BorderLayout.CENTER);
+        gridBagConstraints = new java.awt.GridBagConstraints();
+        gridBagConstraints.gridx = 0;
+        gridBagConstraints.gridy = 1;
+        gridBagConstraints.fill = java.awt.GridBagConstraints.HORIZONTAL;
+        gridBagConstraints.anchor = java.awt.GridBagConstraints.PAGE_START;
+        gridBagConstraints.weighty = 0.1;
+        getContentPane().add(jPanel2, gridBagConstraints);
+
+        jPanel3.setBorder(javax.swing.BorderFactory.createTitledBorder(null, "riwayat pengecekan", javax.swing.border.TitledBorder.DEFAULT_JUSTIFICATION, javax.swing.border.TitledBorder.TOP));
+        java.awt.GridBagLayout jPanel3Layout = new java.awt.GridBagLayout();
+        jPanel3Layout.columnWidths = new int[] {120, 120};
+        jPanel3.setLayout(jPanel3Layout);
+
+        jScrollPane1.setBorder(null);
+        jScrollPane1.setPreferredSize(new java.awt.Dimension(240, 120));
+        jScrollPane1.setViewportView(null);
+
+        jTable1.setModel(new javax.swing.table.DefaultTableModel(
+            new Object [][] {
+
+            },
+            new String [] {
+                "Kota", "Cuaca", "Keterangan"
+            }
+        ) {
+            Class[] types = new Class [] {
+                java.lang.String.class, java.lang.String.class, java.lang.String.class
+            };
+            boolean[] canEdit = new boolean [] {
+                false, false, false
+            };
+
+            public Class getColumnClass(int columnIndex) {
+                return types [columnIndex];
+            }
+
+            public boolean isCellEditable(int rowIndex, int columnIndex) {
+                return canEdit [columnIndex];
+            }
+        });
+        jTable1.setAutoResizeMode(javax.swing.JTable.AUTO_RESIZE_ALL_COLUMNS);
+        jTable1.setShowGrid(true);
+        jTable1.getTableHeader().setReorderingAllowed(false);
+        jTable1.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent evt) {
+                jTable1MouseClicked(evt);
+            }
+        });
+        jScrollPane1.setViewportView(jTable1);
+        if (jTable1.getColumnModel().getColumnCount() > 0) {
+            jTable1.getColumnModel().getColumn(0).setResizable(false);
+            jTable1.getColumnModel().getColumn(1).setResizable(false);
+            jTable1.getColumnModel().getColumn(1).setPreferredWidth(60);
+            jTable1.getColumnModel().getColumn(2).setMinWidth(80);
+            jTable1.getColumnModel().getColumn(2).setMaxWidth(200);
+        }
+
+        gridBagConstraints = new java.awt.GridBagConstraints();
+        gridBagConstraints.gridwidth = 2;
+        gridBagConstraints.gridheight = 2;
+        gridBagConstraints.fill = java.awt.GridBagConstraints.BOTH;
+        gridBagConstraints.insets = new java.awt.Insets(6, 6, 6, 6);
+        jPanel3.add(jScrollPane1, gridBagConstraints);
+
+        jButtonImport.setText("Import data");
+        jButtonImport.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                jButtonImportActionPerformed(evt);
+            }
+        });
+        gridBagConstraints = new java.awt.GridBagConstraints();
+        gridBagConstraints.gridx = 0;
+        gridBagConstraints.gridy = 2;
+        gridBagConstraints.fill = java.awt.GridBagConstraints.BOTH;
+        gridBagConstraints.insets = new java.awt.Insets(4, 4, 4, 4);
+        jPanel3.add(jButtonImport, gridBagConstraints);
+
+        jButtonExport.setText("Export data");
+        jButtonExport.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                jButtonExportActionPerformed(evt);
+            }
+        });
+        gridBagConstraints = new java.awt.GridBagConstraints();
+        gridBagConstraints.gridx = 1;
+        gridBagConstraints.gridy = 2;
+        gridBagConstraints.fill = java.awt.GridBagConstraints.BOTH;
+        gridBagConstraints.insets = new java.awt.Insets(4, 4, 4, 4);
+        jPanel3.add(jButtonExport, gridBagConstraints);
+
+        gridBagConstraints = new java.awt.GridBagConstraints();
+        gridBagConstraints.gridheight = 2;
+        gridBagConstraints.insets = new java.awt.Insets(8, 8, 8, 8);
+        getContentPane().add(jPanel3, gridBagConstraints);
 
         pack();
     }// </editor-fold>//GEN-END:initComponents
 
     private void jButton1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton1ActionPerformed
-        var utils = new Utilities(this);
-        if (utils.validasiTidakNull(jComboBox1, "nama kota")) {
+        this.updateDataCuaca();
+    }//GEN-LAST:event_jButton1ActionPerformed
+
+    private void jComboBox1ItemStateChanged(java.awt.event.ItemEvent evt) {//GEN-FIRST:event_jComboBox1ItemStateChanged
+        if (jComboBox1.getSelectedIndex() != -1) {
+            this.updateDataCuaca();
+        }
+    }//GEN-LAST:event_jComboBox1ItemStateChanged
+
+    private void jButtonImportActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButtonImportActionPerformed
+        var chooser = new JFileChooser();
+        chooser.setMultiSelectionEnabled(false);
+        if (chooser.showOpenDialog(this) != JFileChooser.APPROVE_OPTION) {
             return;
         }
 
-        var kota = (String) jComboBox1.getSelectedItem();
+        try {
+            var data = this.getTableMap();
+
+            var file = chooser.getSelectedFile();
+            var json = Files.readString(file.toPath());
+            var newData = this.dataEkspor.fromJson(json);
+            for (var entry : newData.entrySet()) {
+                var key = entry.getKey();
+                this.tambahKotaFavorit(key);
+                data.put(key, entry.getValue());
+                jComboBox1.setSelectedIndex(-1);
+            }
+
+            var table = (DefaultTableModel) this.jTable1.getModel();
+            table.setRowCount(0);
+            for (var entry : data.entrySet()) {
+                var kota = entry.getKey();
+                var cuaca = entry.getValue();
+                table.addRow(new String[]{kota, cuaca.nama, cuaca.deskripsi});
+            }
+
+            new Utilities(this).showInformationDialog("data berhasil di import!");
+        } catch (IOException ex) {
+            Logger.getLogger(JFrameAplikasiCekCuacaSederhana.class.getName()).log(Level.SEVERE, null, ex);
+        }
+    }//GEN-LAST:event_jButtonImportActionPerformed
+
+    private void jButtonExportActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButtonExportActionPerformed
+        var chooser = new JFileChooser();
+        if (chooser.showSaveDialog(this) != JFileChooser.APPROVE_OPTION) {
+            return;
+        }
+
+        var file = chooser.getSelectedFile();
+        var path = file.getPath();
+        if (!path.endsWith(".json")) {
+            path += ".json";
+        }
+
+        FileWriter writer = null;
+        try {
+            writer = new FileWriter(path);
+            var data = this.getTableMap();
+            writer.write(this.dataEkspor.toJson(data));
+            new Utilities(this).showInformationDialog("data berhasil di import!");
+        } catch (IOException ex) {
+            Logger.getLogger(JFrameAplikasiCekCuacaSederhana.class.getName()).log(Level.SEVERE, null, ex);
+        } finally {
+            try {
+                writer.close();
+            } catch (IOException ex) {
+                Logger.getLogger(JFrameAplikasiCekCuacaSederhana.class.getName()).log(Level.SEVERE, null, ex);
+            }
+        }
+    }//GEN-LAST:event_jButtonExportActionPerformed
+
+    private void jTable1MouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_jTable1MouseClicked
+        var row = jTable1.rowAtPoint(evt.getPoint());
+        if (row < 0) {
+            return;
+        }
+
+        jComboBox1.setSelectedItem(jTable1.getValueAt(row, 0));
+        jTable1.setValueAt(jLabelNamaCuaca.getText(), row, 1);
+        jTable1.setValueAt(jLabelKeteranganCuaca.getText(), row, 2);
+    }//GEN-LAST:event_jTable1MouseClicked
+
+    private Map<String, WeatherData> getTableMap() {
+        var data = new HashMap<String, WeatherData>();
+        var table = (DefaultTableModel) jTable1.getModel();
+        for (var i = 0; i < table.getRowCount(); i += 1) {
+            var kota = (String) table.getValueAt(i, 0);
+            var cuaca = new WeatherData();
+            cuaca.nama = (String) table.getValueAt(i, 1);
+            cuaca.deskripsi = (String) table.getValueAt(i, 2);
+
+            data.put(kota, cuaca);
+        }
+
+        return data;
+    }
+
+    private boolean updateDataCuaca() {
+        var utils = new Utilities(this);
+        if (utils.validasiTidakNull(jComboBox1, "nama kota")) {
+            return false;
+        }
+
+        var kota = ((String) jComboBox1.getSelectedItem()).toLowerCase();
         var coordinates = this.getCoordinates(kota);
         if (coordinates.isEmpty()) {
             utils.showErrorDialog("gagal mendapatkan kordinat kota '%s'!".formatted(kota));
-            return;
+            return false;
         }
 
         var data = this.getWeatherData(coordinates.get());
         if (data.isEmpty()) {
             utils.showErrorDialog("gagal mendapatkan data cuaca '%s'".formatted(kota));
-            return;
+            return false;
         }
 
-        jLabelNamaCuaca.setText(data.get().main);
-        jLabelKeteranganCuaca.setText(data.get().description);
+        var cuaca = data.get().nama;
+        var keterangan = data.get().deskripsi;
+        jLabelNamaCuaca.setText(cuaca);
+        jLabelKeteranganCuaca.setText(keterangan);
 
         var icon = this.getWeatherIcon(data.get());
-        jLabelIconCuaca.setText("");
-        jLabelIconCuaca.setIcon(icon);
-    }//GEN-LAST:event_jButton1ActionPerformed
+        if (icon.isPresent()) {
+            jLabelIconCuaca.setText("");
+            jLabelIconCuaca.setIcon(icon.get());
+        } else {
+            jLabelIconCuaca.setText(cuaca);
+        }
 
-    private ImageIcon getWeatherIcon(WeatherData data) {
+        if (!this.kotaFavorit.contains(kota)) {
+            var table = (DefaultTableModel) jTable1.getModel();
+            table.addRow(new String[]{kota, cuaca, keterangan});
+        }
+
+        this.tambahKotaFavorit(kota);
+        return true;
+    }
+
+    private void tambahKotaFavorit(String kota) {
+        this.kotaFavorit.add(kota);
+        var combobox = (DefaultComboBoxModel<String>) jComboBox1.getModel();
+        combobox.removeAllElements();
+        combobox.setSelectedItem(kota);
+        combobox.addAll(this.kotaFavorit);
+    }
+
+    private Optional<ImageIcon> getWeatherIcon(WeatherData data) {
         var url = new HttpUrl.Builder()
                 .scheme("https")
                 .host("openweathermap.org")
@@ -176,12 +425,12 @@ public class JFrameAplikasiCekCuacaSederhana extends javax.swing.JFrame {
             }
 
             var image = ImageIO.read(response.body().byteStream());
-            return new ImageIcon(image);
+            return Optional.of(new ImageIcon(image));
         } catch (IOException ex) {
             Logger.getLogger(JFrameAplikasiCekCuacaSederhana.class.getName()).log(Level.SEVERE, null, ex);
         }
 
-        return null;
+        return Optional.empty();
     }
 
     private Optional<WeatherData> getWeatherData(GeocodingAPI coordinates) {
@@ -203,7 +452,7 @@ public class JFrameAplikasiCekCuacaSederhana extends javax.swing.JFrame {
 
             var json = response.body().string();
             return Optional.of(
-                    this.currentAPI.fromJson(json).weather.getFirst()
+                    this.currentAPI.fromJson(json).cuaca.getFirst()
             );
         } catch (IOException ex) {
             Logger.getLogger(JFrameAplikasiCekCuacaSederhana.class.getName()).log(Level.SEVERE, null, ex);
@@ -277,6 +526,8 @@ public class JFrameAplikasiCekCuacaSederhana extends javax.swing.JFrame {
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JButton jButton1;
+    private javax.swing.JButton jButtonExport;
+    private javax.swing.JButton jButtonImport;
     private javax.swing.JComboBox<String> jComboBox1;
     private javax.swing.JLabel jLabel1;
     private javax.swing.JLabel jLabelIconCuaca;
@@ -284,6 +535,9 @@ public class JFrameAplikasiCekCuacaSederhana extends javax.swing.JFrame {
     private javax.swing.JLabel jLabelNamaCuaca;
     private javax.swing.JPanel jPanel1;
     private javax.swing.JPanel jPanel2;
+    private javax.swing.JPanel jPanel3;
+    private javax.swing.JScrollPane jScrollPane1;
+    private javax.swing.JTable jTable1;
     // End of variables declaration//GEN-END:variables
 }
 
@@ -295,13 +549,16 @@ class GeocodingAPI {
 
 class CurrentAPI {
 
-    List<WeatherData> weather;
+    @Json(name = "weather")
+    List<WeatherData> cuaca;
 }
 
 class WeatherData {
 
     String id;
-    String main;
-    String description;
+    @Json(name = "main")
+    String nama;
+    @Json(name = "description")
+    String deskripsi;
     String icon;
 }
