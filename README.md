@@ -1,5 +1,41 @@
 # Tugas 6 - Aplikasi Cek Cuaca Sederhana ([screenshot](#screenshot))
 
+Aplikasi ini memungkinkan pengguna untuk memeriksa cuaca saat ini di kota yang dipilih menggunakan API dari OpenWeatherMap. Fitur utama dari aplikasi ini mencakup:
+
+- Pencarian cuaca berdasarkan nama kota.
+- Menyimpan dan menampilkan kota favorit.
+- Mengimpor dan mengekspor data cuaca dalam format JSON.
+- Menampilkan ikon cuaca sesuai dengan kondisi cuaca terkini.
+
+## Fitur
+
+- **Cek Cuaca**: Pilih kota dari dropdown dan tekan tombol "Cek Cuaca" untuk melihat cuaca terkini.
+- **Kota Favorit**: Kota yang sering dicari bisa disimpan sebagai favorit.
+- **Impor Data**: Impor data cuaca dari file JSON yang sudah ada.
+- **Ekspor Data**: Ekspor data cuaca yang ada ke file JSON.
+- **Tampilan Cuaca**: Menampilkan nama cuaca, deskripsi, dan ikon cuaca yang sesuai.
+
+## Instalasi
+
+1. Pastikan Anda memiliki **Java** versi 8 atau lebih tinggi yang terinstal.
+2. Pastikan Anda memiliki **NetBeans IDE** atau IDE lain yang mendukung proyek Java Swing.
+3. Masukkan **API Key** Anda dari [OpenWeatherMap](https://openweathermap.org/api) ke dalam variabel `apiKey` dalam kode.
+
+## Penggunaan
+
+1. Pilih kota yang ingin Anda cek cuacanya pada dropdown.
+2. Klik tombol **Cek Cuaca** untuk mendapatkan cuaca terkini untuk kota tersebut.
+3. Anda dapat menambahkan kota favorit dengan memilihnya dari dropdown dan menyimpannya untuk akses cepat di masa mendatang.
+4. Untuk mengimpor atau mengekspor data, gunakan tombol **Import Data** dan **Export Data**.
+
+## Dependencies
+
+- **Moshi**: Digunakan untuk parsing JSON.
+- **OkHttp**: Digunakan untuk melakukan permintaan HTTP ke API OpenWeatherMap.
+- **Swing**: Digunakan untuk GUI.
+
+## Detail tugas
+
 1. Deskripsi Program:
 
    - Integrasi dengan API cuaca eksternal (misalnya OpenWeatherMap) untuk mendapatkan data cuaca secara real-time
